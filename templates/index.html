@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agent Wyjaśniający dla Alien - FC Barcelona Fan</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #a50044, #004d98);
+      color: #fff;
+      display: flex;
+    }
+
+    header {
+      background-color: #1d1d1d;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    header img {
+      height: 50px;
+    }
+
+    header h2 {
+      margin: 0;
+    }
+
+    .sidebar {
+      width: 250px;
+      background-color: #111;
+      padding: 15px;
+      box-sizing: border-box;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar h3 {
+      color: #ffc72c;
+      font-size: 1.2em;
+      margin-bottom: 10px;
+    }
+
+    .chat-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .chat-list li {
+      cursor: pointer;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 5px;
+      background-color: #222;
+      transition: background-color 0.2s;
+    }
+
+    .chat-list li:hover {
+      background-color: #333;
+    }
+
+    .active {
+      background-color: #ffc72c !important;
+      color: #1d1d1d;
+      font-weight: bold;
+    }
+
+    .container {
+      flex: 1;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 20px;
+      border-radius: 15px;
+      margin-top: 30px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+    }
+
+    h1 {
+      font-size: 2em;
+      text-align: center;
+    }
+
+    #chatBox {
+      margin-top: 15px;
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .chat-bubble {
+      max-width: 70%;
+      padding: 10px 15px;
+      border-radius: 15px;
+      margin-bottom: 10px;
+      word-wrap: break-word;
+    }
+
+    .chat-bubble.user {
+      background-color: #ffbaba;
+      color: #1d1d1d;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .chat-bubble.bot {
+      background-color: #7cd1ff;
+      color: #000;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    #chatInputWrapper {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    #textToExplain {
+      max-width: 70%;
+      padding: 10px 15px;
+      border-radius: 15px;
+      border: none;
+      outline: none;
+      font-size: 1em;
+      background-color: #ffbaba;
+      color: #1d1d1d;
+      margin-top: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+
+    .settings {
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-size: 0.95em;
+    }
+
+    .settings label {
+      display: block;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h3>🗂️ Rozmowy</h3>
+    <ul class="chat-list" id="chatTabs"></ul>
+    <button onclick="startNewChat()">+ Nowa rozmowa</button>
+  </div>
+
+  <div class="container">
+    <header>
+      <img src="https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg" alt="FC Barcelona Logo">
+      <h2>Chatbot w stylu FC Barcelony</h2>
+    </header>
+
+    <h1>Co chciałbyś widzieć podróżniku? 🥅</h1>
+
+    <div id="chatBox"><div id="chatMessages"></div></div>
+
+    <div id="chatInputWrapper">
+      <input type="text" id="textToExplain" placeholder="Napisz coś..." onkeydown="handleEnter(event)" />
+    </div>
+
+    <div class="settings">
+      <h3>⚙️ Ustawienia dźwięku</h3>
+      <label>
+        <input type="checkbox" id="toggleAnthem" checked>
+        Odtwarzaj hymn Barcelony
+      </label>
+      <label for="volumeSlider">Głośność:</label>
+      <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1">
+    </div>
+
+    <audio id="anthemPlayer" loop>
+      <source src="/static/NEW%20VERSION%20of%20FC%20BARCELONAs%20official%20ICONIC%20ANTHEM!!!%20%20Cant%20del%20Barça%20🔵🔴🎤%20🎵🎵.mp3" type="audio/mpeg">
+      Twoja przeglądarka nie obsługuje odtwarzacza audio.
+    </audio>
+  </div>
+<script>
+  const chatMessages = document.getElementById("chatMessages");
+  const chatTabs = document.getElementById("chatTabs");
+  let chats = JSON.parse(localStorage.getItem("chats") || "[]");
+  let currentChatId = null;
+
+  function saveChats() {
+    localStorage.setItem("chats", JSON.stringify(chats));
+  }
+
+  async function generateTitle(text) {
+    try {
+      const res = await fetch('/generate_title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      const chat = chats.find(c => c.id === currentChatId);
+      if (chat) {
+        chat.title = data.title || "Rozmowa";
+        saveChats();
+        renderChats();
+      }
+    } catch (e) {
+      console.warn("Nie udało się wygenerować tytułu:", e);
+    }
+  }
+
+  function renderChats() {
+    chatTabs.innerHTML = "";
+    chats.forEach((chat, index) => {
+      const li = document.createElement("li");
+      li.classList.toggle("active", chat.id === currentChatId);
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.alignItems = "center";
+
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = chat.title || "Rozmowa " + (index + 1);
+      titleSpan.style.cursor = "pointer";
+      titleSpan.onclick = () => {
+        const newTitle = prompt("Zmień tytuł rozmowy:", chat.title);
+        if (newTitle && newTitle.trim()) {
+          chat.title = newTitle.trim();
+          saveChats();
+          renderChats();
+        } else {
+          switchChat(chat.id);
+        }
+      };
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "🗑️";
+      deleteBtn.style.background = "transparent";
+      deleteBtn.style.border = "none";
+      deleteBtn.style.cursor = "pointer";
+      deleteBtn.style.color = "#ff4d4d";
+      deleteBtn.style.fontSize = "1.1em";
+      deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteChat(chat.id);
+      };
+
+      li.appendChild(titleSpan);
+      li.appendChild(deleteBtn);
+      chatTabs.appendChild(li);
+    });
+  }
+
+  function switchChat(id) {
+    currentChatId = id;
+    const chat = chats.find(c => c.id === id);
+    chatMessages.innerHTML = "";
+    chat.messages.forEach(msg => appendMessage(msg.sender, msg.text, false));
+    renderChats();
+  }
+
+  async function startNewChat() {
+    const defaultTitle = "Nowa rozmowa";
+    const newChat = {
+      id: Date.now(),
+      title: defaultTitle,
+      messages: []
+    };
+    chats.push(newChat);
+    currentChatId = newChat.id;
+    saveChats();
+    renderChats();
+    chatMessages.innerHTML = "";
+  }
+
+  function deleteChat(id) {
+    if (confirm("Czy na pewno chcesz usunąć tę rozmowę?")) {
+      chats = chats.filter(chat => chat.id !== id);
+      if (currentChatId === id) {
+        currentChatId = chats.length > 0 ? chats[chats.length - 1].id : null;
+      }
+      saveChats();
+      renderChats();
+      chatMessages.innerHTML = "";
+      if (currentChatId) switchChat(currentChatId);
+    }
+  }
+
+  function appendMessage(sender, message, shouldSave = true) {
+    const div = document.createElement("div");
+    div.classList.add("chat-bubble", sender);
+    div.textContent = message;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    if (shouldSave) {
+      const chat = chats.find(c => c.id === currentChatId);
+      if (chat) {
+        chat.messages.push({ sender, text: message });
+        saveChats();
+      }
+    }
+  }
+
+  async function explainText() {
+    const input = document.getElementById("textToExplain");
+    const text = input.value.trim();
+    if (!text) return;
+
+    if (!currentChatId) {
+      await startNewChat();
+      await generateTitle(text);
+    }
+
+    appendMessage("user", text);
+    input.value = "";
+
+    try {
+      const response = await fetch('/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      const data = await response.json();
+      appendMessage("bot", response.ok ? data.explanation : "❌ Błąd: " + data.error);
+    } catch (error) {
+      appendMessage("bot", "❌ Błąd połączenia: " + error.message);
+    }
+  }
+
+  function handleEnter(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      explainText();
+    }
+  }
+
+  const anthemPlayer = document.getElementById("anthemPlayer");
+  const toggleAnthem = document.getElementById("toggleAnthem");
+  const volumeSlider = document.getElementById("volumeSlider");
+
+  window.addEventListener("DOMContentLoaded", () => {
+    anthemPlayer.volume = volumeSlider.value;
+    if (toggleAnthem.checked) {
+      anthemPlayer.play().catch(() => console.log("Autoplay zablokowany przez przeglądarkę."));
+    }
+    renderChats();
+    if (chats.length > 0) switchChat(chats[chats.length - 1].id);
+  });
+
+  toggleAnthem.addEventListener("change", () => {
+    toggleAnthem.checked ? anthemPlayer.play() : anthemPlayer.pause();
+  });
+
+  volumeSlider.addEventListener("input", () => {
+    anthemPlayer.volume = volumeSlider.value;
+  });
+</script>
+</body>
+</html>
